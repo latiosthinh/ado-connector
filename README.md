@@ -1,6 +1,10 @@
 # ADO Connector for Next.js
 
+[![npm version](https://badge.fury.io/js/ado-connector.svg)](https://www.npmjs.com/package/ado-connector)
+[![Publish to NPM](https://github.com/YOUR_USERNAME/ado-connector/actions/workflows/publish.yml/badge.svg)](https://github.com/YOUR_USERNAME/ado-connector/actions/workflows/publish.yml)
+
 A simple, powerful library to expose Azure DevOps (ADO) capabilities in your Next.js application.
+
 
 ## Installation
 

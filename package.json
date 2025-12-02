@@ -1,18 +1,43 @@
 {
   "name": "ado-connector",
   "version": "1.0.0",
+  "description": "A simple, powerful library to expose Azure DevOps (ADO) capabilities in your Next.js application",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": [],
+  "keywords": [
+    "azure-devops",
+    "ado",
+    "nextjs",
+    "next",
+    "pipelines",
+    "artifacts",
+    "azure",
+    "devops",
+    "connector",
+    "api"
+  ],
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/latiosthinh/ado-connector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/latiosthinh/ado-connector/issues"
+  },
+  "homepage": "https://github.com/latiosthinh/ado-connector#readme",
   "devDependencies": {
     "@types/base-64": "^1.0.2",
     "@types/node": "^24.10.1",
@@ -23,5 +48,8 @@
   },
   "dependencies": {
     "base-64": "^1.0.0"
+  },
+  "peerDependencies": {
+    "next": ">=14.0.0"
   }
 }
