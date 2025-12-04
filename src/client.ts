@@ -21,8 +21,14 @@ export class AdoClient {
         this.authHeader = `Basic ${base64.encode(':' + config.pat)}`;
     }
 
-    private async fetchJson(url: string) {
-        const res = await fetch(url, { headers: { Authorization: this.authHeader } });
+    private async fetchJson(url: string, options?: RequestInit) {
+        const res = await fetch(url, {
+            headers: {
+                Authorization: this.authHeader,
+                'Content-Type': 'application/json',
+            },
+            ...options
+        });
         if (!res.ok) {
             const text = await res.text();
             throw new Error(`${res.status} ${res.statusText} - ${text}`);
@@ -43,8 +49,14 @@ export class AdoClient {
         return all;
     }
 
-    async listPipelines() {
-        const url = `${this.baseUrl}/pipelines?api-version=${this.apiVersion}`;
+    async listPipelines(top?: number, skip?: number) {
+        let url = `${this.baseUrl}/pipelines?api-version=${this.apiVersion}`;
+        if (top !== undefined) url += `&$top=${top}`;
+        if (skip !== undefined) url += `&$skip=${skip}`; // Note: ADO might not support $skip on all endpoints, but we add it if requested.
+
+        if (top !== undefined || skip !== undefined) {
+            return this.fetchJson(url).then(r => r.value || []);
+        }
         return this.fetchAllPaged(url);
     }
 
@@ -53,8 +65,14 @@ export class AdoClient {
         return this.fetchJson(url);
     }
 
-    async listPipelineRuns(pipelineId: number) {
-        const url = `${this.baseUrl}/pipelines/${pipelineId}/runs?api-version=${this.apiVersion}`;
+    async listPipelineRuns(pipelineId: number, top?: number, skip?: number) {
+        let url = `${this.baseUrl}/pipelines/${pipelineId}/runs?api-version=${this.apiVersion}`;
+        if (top !== undefined) url += `&$top=${top}`;
+        if (skip !== undefined) url += `&$skip=${skip}`; // ADO usually supports $top for runs.
+
+        if (top !== undefined || skip !== undefined) {
+            return this.fetchJson(url).then(r => r.value || []);
+        }
         return this.fetchAllPaged(url);
     }
 
@@ -70,6 +88,25 @@ export class AdoClient {
         // Our baseUrl is .../_apis. So we can append build/builds...
         const url = `${this.baseUrl}/build/builds/${buildId}/artifacts?api-version=${this.apiVersion}`;
         return this.fetchJson(url).then(r => r.value || []);
+    }
+
+    async runPipeline(pipelineId: number, options?: {
+        resources?: {
+            repositories?: {
+                self?: {
+                    refName?: string; // Branch name, e.g., "refs/heads/main"
+                }
+            }
+        },
+        templateParameters?: Record<string, any>,
+        variables?: Record<string, { value: string, isSecret?: boolean }>
+    }) {
+        const url = `${this.baseUrl}/pipelines/${pipelineId}/runs?api-version=${this.apiVersion}`;
+        const body = options || {};
+        return this.fetchJson(url, {
+            method: 'POST',
+            body: JSON.stringify(body)
+        });
     }
 
     // Aggregated method from original code
