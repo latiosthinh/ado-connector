@@ -25,8 +25,10 @@ export function createAdoHandler(config: AdoConfig) {
                     // GET /pipelines
                     if (method === 'GET') {
                         const mode = req.nextUrl.searchParams.get('mode');
-                        const top = req.nextUrl.searchParams.get('top') ? parseInt(req.nextUrl.searchParams.get('top')!) : undefined;
-                        const skip = req.nextUrl.searchParams.get('skip') ? parseInt(req.nextUrl.searchParams.get('skip')!) : undefined;
+                        const topParam = req.nextUrl.searchParams.get('top') || req.nextUrl.searchParams.get('$top');
+                        const skipParam = req.nextUrl.searchParams.get('skip') || req.nextUrl.searchParams.get('$skip');
+                        const top = topParam ? parseInt(topParam) : undefined;
+                        const skip = skipParam ? parseInt(skipParam) : undefined;
 
                         if (mode === 'simple') {
                             const data = await client.listPipelines(top, skip);
@@ -40,7 +42,7 @@ export function createAdoHandler(config: AdoConfig) {
                             // Actually, listPipelines is called inside getPipelinesWithLatestRunAndArtifacts.
                             // If we want to paginate that, we should update that method too.
                             // For now, let's just update the simple mode and the runs.
-                            const data = await client.getPipelinesWithLatestRunAndArtifacts();
+                            const data = await client.getPipelinesWithLatestRunAndArtifacts(top, skip);
                             return NextResponse.json(data);
                         }
                     }
@@ -56,8 +58,10 @@ export function createAdoHandler(config: AdoConfig) {
                             // GET /pipelines/:id/runs - List runs
                             // POST /pipelines/:id/runs - Trigger new run
                             if (method === 'GET') {
-                                const top = req.nextUrl.searchParams.get('top') ? parseInt(req.nextUrl.searchParams.get('top')!) : undefined;
-                                const skip = req.nextUrl.searchParams.get('skip') ? parseInt(req.nextUrl.searchParams.get('skip')!) : undefined;
+                                const topParam = req.nextUrl.searchParams.get('top') || req.nextUrl.searchParams.get('$top');
+                                const skipParam = req.nextUrl.searchParams.get('skip') || req.nextUrl.searchParams.get('$skip');
+                                const top = topParam ? parseInt(topParam) : undefined;
+                                const skip = skipParam ? parseInt(skipParam) : undefined;
                                 const data = await client.listPipelineRuns(parseInt(id), top, skip);
                                 return NextResponse.json(data);
                             } else if (method === 'POST') {

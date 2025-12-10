@@ -110,11 +110,11 @@ export class AdoClient {
     }
 
     // Aggregated method from original code
-    async getPipelinesWithLatestRunAndArtifacts() {
-        const pipelines = await this.listPipelines();
+    async getPipelinesWithLatestRunAndArtifacts(top?: number, skip?: number) {
+        const pipelines = await this.listPipelines(top, skip);
         const enriched = await Promise.all(pipelines.map(async (p: any) => {
             try {
-                const runs = await this.listPipelineRuns(p.id);
+                const runs = await this.listPipelineRuns(p.id, 1);
                 const latest = runs[0] || null;
                 let artifacts: any[] = [];
                 const buildId = latest?.resources?.build?.id || latest?.build?.id; // Check both locations
