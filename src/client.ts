@@ -51,13 +51,20 @@ export class AdoClient {
 
     async listPipelines(top?: number, skip?: number) {
         let url = `${this.baseUrl}/pipelines?api-version=${this.apiVersion}`;
-        if (top !== undefined) url += `&$top=${top}`;
-        if (skip !== undefined) url += `&$skip=${skip}`; // Note: ADO might not support $skip on all endpoints, but we add it if requested.
+        if (top !== undefined) url += `&top=${top}`;
 
-        if (top !== undefined || skip !== undefined) {
-            return this.fetchJson(url).then(r => r.value || []);
+        let allResults: any[] = [];
+        // Always fetch all to get correct total count
+        allResults = await this.fetchAllPaged(url);
+        const total = allResults.length;
+
+        let items = allResults;
+        if (skip !== undefined || top !== undefined) {
+            const start = skip || 0;
+            const end = top ? start + top : undefined;
+            items = allResults.slice(start, end);
         }
-        return this.fetchAllPaged(url);
+        return { total, items };
     }
 
     async getPipeline(id: number) {
@@ -67,13 +74,19 @@ export class AdoClient {
 
     async listPipelineRuns(pipelineId: number, top?: number, skip?: number) {
         let url = `${this.baseUrl}/pipelines/${pipelineId}/runs?api-version=${this.apiVersion}`;
-        if (top !== undefined) url += `&$top=${top}`;
-        if (skip !== undefined) url += `&$skip=${skip}`; // ADO usually supports $top for runs.
+        if (top !== undefined) url += `&top=${top}`;
 
-        if (top !== undefined || skip !== undefined) {
-            return this.fetchJson(url).then(r => r.value || []);
+        let allResults: any[] = [];
+        allResults = await this.fetchAllPaged(url);
+        const total = allResults.length;
+
+        let items = allResults;
+        if (skip !== undefined || top !== undefined) {
+            const start = skip || 0;
+            const end = top ? start + top : undefined;
+            items = allResults.slice(start, end);
         }
-        return this.fetchAllPaged(url);
+        return { total, items };
     }
 
     async getRun(pipelineId: number, runId: number) {
@@ -111,10 +124,10 @@ export class AdoClient {
 
     // Aggregated method from original code
     async getPipelinesWithLatestRunAndArtifacts(top?: number, skip?: number) {
-        const pipelines = await this.listPipelines(top, skip);
+        const { items: pipelines, total } = await this.listPipelines(top, skip);
         const enriched = await Promise.all(pipelines.map(async (p: any) => {
             try {
-                const runs = await this.listPipelineRuns(p.id, 1);
+                const { items: runs } = await this.listPipelineRuns(p.id, 1);
                 const latest = runs[0] || null;
                 let artifacts: any[] = [];
                 const buildId = latest?.resources?.build?.id || latest?.build?.id; // Check both locations
@@ -131,6 +144,6 @@ export class AdoClient {
                 return p;
             }
         }));
-        return enriched;
+        return { total, items: enriched };
     }
 }

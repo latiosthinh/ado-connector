@@ -7,8 +7,9 @@ export function createAdoHandler(config: AdoConfig) {
 
     async function handleRequest(
         req: NextRequest,
-        { params }: { params: { ado?: string[] } }
+        context: { params: Promise<{ ado?: string[] }> | { ado?: string[] } }
     ) {
+        const params = await context.params;
         const pathSegments = params && Object.values(params)[0];
         const segments = Array.isArray(pathSegments) ? pathSegments : [];
 
