@@ -7,4 +7,4 @@ const handler = createAdoHandler({
     pat: process.env.ADO_PAT || 'test pat',
 });
 
-export { handler as GET, handler as POST };
+export { handler as GET, handler as POST, handler as PATCH };

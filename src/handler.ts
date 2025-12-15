@@ -13,18 +13,35 @@ export function createAdoHandler(config: AdoConfig) {
         const pathSegments = params && Object.values(params)[0];
         const segments = Array.isArray(pathSegments) ? pathSegments : [];
 
+        let resource, id, subResource, subId, method;
+
         try {
             if (segments.length === 0) {
                 return NextResponse.json({ message: 'ADO Connector API' });
             }
 
-            const [resource, id, subResource, subId] = segments;
-            const method = req.method;
+            [resource, id, subResource, subId] = segments;
+            method = req.method;
 
             if (resource === 'pipelines') {
+                const pipelineId = parseInt(id);
+                if (isNaN(pipelineId)) {
+                    return NextResponse.json({ error: 'Invalid Pipeline ID' }, { status: 400 });
+                }
+
+                if (!id) { // This branch is actually unreachable if we access id above, but logic structure needs care.
+                    // valid logic:
+                    // resource, id, sub, subId.
+                    // if id is undefined, parseInt is NaN.
+                    // But "pipelines" without ID is listPipelines.
+                    // Wait, "pipelines" matches...
+                    // segments: ["pipelines"] -> id undefined.
+                }
+
+                // Let's rewrite the logic slightly to be cleaner.
                 if (!id) {
-                    // GET /pipelines
                     if (method === 'GET') {
+                        // list logic
                         const mode = req.nextUrl.searchParams.get('mode');
                         const topParam = req.nextUrl.searchParams.get('top') || req.nextUrl.searchParams.get('$top');
                         const skipParam = req.nextUrl.searchParams.get('skip') || req.nextUrl.searchParams.get('$skip');
@@ -35,55 +52,64 @@ export function createAdoHandler(config: AdoConfig) {
                             const data = await client.listPipelines(top, skip);
                             return NextResponse.json(data);
                         } else {
-                            // Note: getPipelinesWithLatestRunAndArtifacts does not support pagination yet as it aggregates data.
-                            // We might want to support top/skip there too if needed, but for now let's keep it simple or pass it if applicable.
-                            // The user request said "all possible API", so let's try to pass it if we can, but that method logic is complex.
-                            // Let's stick to simple mode for pagination for now as per plan, or check if we should update that too.
-                            // The plan didn't explicitly mention the aggregated method, but let's see.
-                            // Actually, listPipelines is called inside getPipelinesWithLatestRunAndArtifacts.
-                            // If we want to paginate that, we should update that method too.
-                            // For now, let's just update the simple mode and the runs.
                             const data = await client.getPipelinesWithLatestRunAndArtifacts(top, skip);
                             return NextResponse.json(data);
                         }
                     }
                 } else {
+                    const pipelineId = parseInt(id);
+                    if (isNaN(pipelineId)) {
+                        return NextResponse.json({ error: 'Invalid Pipeline ID' }, { status: 400 });
+                    }
+
                     if (!subResource) {
-                        // GET /pipelines/:id
                         if (method === 'GET') {
-                            const data = await client.getPipeline(parseInt(id));
+                            const data = await client.getPipeline(pipelineId);
                             return NextResponse.json(data);
                         }
                     } else if (subResource === 'runs') {
                         if (!subId) {
-                            // GET /pipelines/:id/runs - List runs
-                            // POST /pipelines/:id/runs - Trigger new run
                             if (method === 'GET') {
                                 const topParam = req.nextUrl.searchParams.get('top') || req.nextUrl.searchParams.get('$top');
                                 const skipParam = req.nextUrl.searchParams.get('skip') || req.nextUrl.searchParams.get('$skip');
                                 const top = topParam ? parseInt(topParam) : undefined;
                                 const skip = skipParam ? parseInt(skipParam) : undefined;
-                                const data = await client.listPipelineRuns(parseInt(id), top, skip);
+                                const data = await client.listPipelineRuns(pipelineId, top, skip);
                                 return NextResponse.json(data);
                             } else if (method === 'POST') {
                                 const body = await req.json().catch(() => ({}));
-                                const data = await client.runPipeline(parseInt(id), body);
+                                const data = await client.runPipeline(pipelineId, body);
                                 return NextResponse.json(data);
                             }
                         } else {
-                            // GET /pipelines/:id/runs/:runId
+                            const runId = parseInt(subId);
+                            if (isNaN(runId)) {
+                                return NextResponse.json({ error: 'Invalid Run ID' }, { status: 400 });
+                            }
+
                             if (method === 'GET') {
-                                const data = await client.getRun(parseInt(id), parseInt(subId));
+                                const data = await client.getRun(pipelineId, runId);
                                 return NextResponse.json(data);
+                            } else if (method === 'PATCH') {
+                                const body = await req.json().catch(() => ({}));
+                                if (body.state === 'canceling') {
+                                    const data = await client.cancelRun(pipelineId, runId);
+                                    return NextResponse.json(data);
+                                } else {
+                                    // Handle other patch cases or return 400
+                                    // For now ignore or 400
+                                }
                             }
                         }
                     }
                 }
             } else if (resource === 'builds') {
+                // ... validation for builds if needed
                 if (id && subResource === 'artifacts') {
-                    // GET /builds/:id/artifacts
+                    const buildId = parseInt(id);
+                    if (isNaN(buildId)) return NextResponse.json({ error: 'Invalid Build ID' }, { status: 400 });
                     if (method === 'GET') {
-                        const data = await client.listBuildArtifacts(parseInt(id));
+                        const data = await client.listBuildArtifacts(buildId);
                         return NextResponse.json(data);
                     }
                 }
@@ -92,8 +118,14 @@ export function createAdoHandler(config: AdoConfig) {
             return NextResponse.json({ error: 'Not Found' }, { status: 404 });
 
         } catch (error: any) {
-            console.error('ADO API Error:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            console.error('ADO API Error Details:', error);
+            console.error('Request Info:', { resource, id, subResource, subId, method });
+
+            // Try to extract status code from error string "STATUS TEXT - MSG"
+            const statusMatch = error.message.match(/^(\d{3})\s/);
+            const status = statusMatch ? parseInt(statusMatch[1]) : 500;
+
+            return NextResponse.json({ error: error.message }, { status });
         }
     }
 
