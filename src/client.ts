@@ -252,7 +252,17 @@ export class AdoClient {
         const enriched = await Promise.all(pipelines.map(async (p: any) => {
             try {
                 const { items: runs } = await this.listPipelineRuns(p.id, 1);
-                const latest = runs[0] || null;
+                let latest = runs[0] || null;
+
+                // Fetch full run details to get resources (commit info)
+                if (latest) {
+                    try {
+                        latest = await this.getRun(p.id, latest.id);
+                    } catch (e) {
+                        console.warn(`Failed to fetch full run details for run ${latest.id}`, e);
+                    }
+                }
+
                 let artifacts: any[] = [];
                 const buildId = latest?.resources?.build?.id || latest?.build?.id; // Check both locations
                 if (buildId) {
@@ -269,11 +279,17 @@ export class AdoClient {
                         // Attempt to find repository info and commit version (hash)
                         // 'self' is the alias for the primary repository resource
                         const repoResource = latest.resources?.repositories?.self;
+                        console.log(`[Pipeline ${p.id}] Repo resource:`, JSON.stringify(repoResource));
                         if (repoResource && repoResource.repository?.id && repoResource.version) {
+                            console.log(`[Pipeline ${p.id}] Fetching commit ${repoResource.version} from repo ${repoResource.repository.id}`);
                             const commit = await this.getCommit(repoResource.repository.id, repoResource.version);
+                            console.log(`[Pipeline ${p.id}] Commit data:`, JSON.stringify(commit));
                             // Commit comment can be multi-line, subject is usually the first line
                             const comment = commit?.comment || '';
                             commitSubject = comment.split('\n')[0];
+                            console.log(`[Pipeline ${p.id}] Commit subject:`, commitSubject);
+                        } else {
+                            console.log(`[Pipeline ${p.id}] No repo resource or missing data`);
                         }
                     } catch (e) {
                         console.warn(`Failed to fetch commit details for run ${latest.id}`, e);
@@ -283,7 +299,7 @@ export class AdoClient {
                 return { id: p.id, name: p.name, url: p._links?.web?.href, latestRun: latest, artifacts, commitSubject };
             } catch (e) {
                 console.warn(`Failed to fetch details for pipeline ${p.id}`, e);
-                return p;
+                return { id: p.id, name: p.name, url: p._links?.web?.href, latestRun: null, artifacts: [], commitSubject: null };
             }
         }));
         return { total, items: enriched };

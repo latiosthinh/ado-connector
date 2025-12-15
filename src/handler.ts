@@ -24,24 +24,9 @@ export function createAdoHandler(config: AdoConfig) {
             method = req.method;
 
             if (resource === 'pipelines') {
-                const pipelineId = parseInt(id);
-                if (isNaN(pipelineId)) {
-                    return NextResponse.json({ error: 'Invalid Pipeline ID' }, { status: 400 });
-                }
-
-                if (!id) { // This branch is actually unreachable if we access id above, but logic structure needs care.
-                    // valid logic:
-                    // resource, id, sub, subId.
-                    // if id is undefined, parseInt is NaN.
-                    // But "pipelines" without ID is listPipelines.
-                    // Wait, "pipelines" matches...
-                    // segments: ["pipelines"] -> id undefined.
-                }
-
-                // Let's rewrite the logic slightly to be cleaner.
                 if (!id) {
+                    // GET /pipelines - list all pipelines
                     if (method === 'GET') {
-                        // list logic
                         const mode = req.nextUrl.searchParams.get('mode');
                         const topParam = req.nextUrl.searchParams.get('top') || req.nextUrl.searchParams.get('$top');
                         const skipParam = req.nextUrl.searchParams.get('skip') || req.nextUrl.searchParams.get('$skip');
@@ -57,6 +42,7 @@ export function createAdoHandler(config: AdoConfig) {
                         }
                     }
                 } else {
+                    // Validate pipeline ID when it's provided
                     const pipelineId = parseInt(id);
                     if (isNaN(pipelineId)) {
                         return NextResponse.json({ error: 'Invalid Pipeline ID' }, { status: 400 });
@@ -119,6 +105,11 @@ export function createAdoHandler(config: AdoConfig) {
                         const data = await client.listBranches(id);
                         return NextResponse.json(data);
                     }
+                } else if (id && subResource === 'commits' && subId) {
+                    if (method === 'GET') {
+                        const data = await client.getCommit(id, subId);
+                        return NextResponse.json(data);
+                    }
                 }
             }
 
@@ -126,7 +117,6 @@ export function createAdoHandler(config: AdoConfig) {
 
         } catch (error: any) {
             console.error('ADO API Error Details:', error);
-            console.error('Request Info:', { resource, id, subResource, subId, method });
 
             // Try to extract status code from error string "STATUS TEXT - MSG"
             const statusMatch = error.message.match(/^(\d{3})\s/);
