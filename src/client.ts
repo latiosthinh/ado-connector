@@ -235,6 +235,17 @@ export class AdoClient {
         });
     }
 
+    async listBranches(repositoryId: string) {
+        const url = `${this.baseUrl}/git/repositories/${repositoryId}/refs?filter=heads/&api-version=${this.apiVersion}`;
+        const data = await this.fetchJson(url);
+        // Response format: { value: [{ name: "refs/heads/main", ... }] }
+        const branches = (data.value || []).map((ref: any) => ({
+            name: ref.name.replace('refs/heads/', ''), // Strip prefix for display
+            ref: ref.name // Keep full ref for API calls
+        }));
+        return branches;
+    }
+
     // Aggregated method from original code
     async getPipelinesWithLatestRunAndArtifacts(top?: number, skip?: number) {
         const { items: pipelines, total } = await this.listPipelines(top, skip);

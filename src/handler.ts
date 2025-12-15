@@ -113,6 +113,13 @@ export function createAdoHandler(config: AdoConfig) {
                         return NextResponse.json(data);
                     }
                 }
+            } else if (resource === 'repositories') {
+                if (id && subResource === 'branches') {
+                    if (method === 'GET') {
+                        const data = await client.listBranches(id);
+                        return NextResponse.json(data);
+                    }
+                }
             }
 
             return NextResponse.json({ error: 'Not Found' }, { status: 404 });

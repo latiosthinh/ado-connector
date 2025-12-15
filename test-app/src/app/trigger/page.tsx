@@ -8,6 +8,47 @@ export default function TriggerPage() {
     const [tags, setTags] = useState("");
     const [result, setResult] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [branches, setBranches] = useState<any[]>([]);
+    const [loadingBranches, setLoadingBranches] = useState(false);
+    const [repositoryId, setRepositoryId] = useState<string | null>(null);
+
+    // Fetch pipeline details to get repository ID, then fetch branches
+    useEffect(() => {
+        if (!pipelineId) {
+            setBranches([]);
+            setRepositoryId(null);
+            return;
+        }
+
+        const fetchBranches = async () => {
+            setLoadingBranches(true);
+            try {
+                // First get pipeline details to extract repository ID
+                const pipelineRes = await fetch(`/api/ado/pipelines/${pipelineId}`);
+                if (pipelineRes.ok) {
+                    const pipelineData = await pipelineRes.json();
+                    // Extract repository ID from pipeline configuration
+                    // Typically in pipelineData.configuration.repository.id
+                    const repoId = pipelineData?.configuration?.repository?.id;
+
+                    if (repoId) {
+                        setRepositoryId(repoId);
+                        const branchesRes = await fetch(`/api/ado/repositories/${repoId}/branches`);
+                        if (branchesRes.ok) {
+                            const branchesData = await branchesRes.json();
+                            setBranches(branchesData);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch branches:', e);
+            } finally {
+                setLoadingBranches(false);
+            }
+        };
+
+        fetchBranches();
+    }, [pipelineId]);
 
     const handleTrigger = async () => {
         setLoading(true);
@@ -46,13 +87,30 @@ export default function TriggerPage() {
                 />
             </div>
             <div style={{ marginBottom: "10px" }}>
-                <label>Branch (optional): </label>
-                <input
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    placeholder="refs/heads/main"
-                    style={{ marginLeft: "10px" }}
-                />
+                <label>Branch: </label>
+                {loadingBranches ? (
+                    <span style={{ marginLeft: "10px" }}>Loading branches...</span>
+                ) : branches.length > 0 ? (
+                    <select
+                        value={branch}
+                        onChange={(e) => setBranch(e.target.value)}
+                        style={{ marginLeft: "10px" }}
+                    >
+                        <option value="">-- Select Branch --</option>
+                        {branches.map((b) => (
+                            <option key={b.ref} value={b.ref}>
+                                {b.name}
+                            </option>
+                        ))}
+                    </select>
+                ) : (
+                    <input
+                        value={branch}
+                        onChange={(e) => setBranch(e.target.value)}
+                        placeholder="refs/heads/main"
+                        style={{ marginLeft: "10px" }}
+                    />
+                )}
             </div>
             <div style={{ marginBottom: "10px" }}>
                 <label>Tags (comma separated, optional): </label>
@@ -81,6 +139,12 @@ function RunStatus({ pipelineId, initialRun }: { pipelineId: string; initialRun:
 
     useEffect(() => {
         if (!run?.id) return;
+
+        // Stop polling if run is in terminal state
+        if (run.state === 'canceling' || run.state === 'completed') {
+            return;
+        }
+
         const interval = setInterval(async () => {
             try {
                 const res = await fetch(`/api/ado/pipelines/${pipelineId}/runs/${run.id}`);
@@ -93,7 +157,7 @@ function RunStatus({ pipelineId, initialRun }: { pipelineId: string; initialRun:
             }
         }, 5000); // 5 seconds for test
         return () => clearInterval(interval);
-    }, [pipelineId, run?.id]);
+    }, [pipelineId, run?.id, run?.state]);
 
     const handleCancel = async () => {
         if (!run?.id) return;
