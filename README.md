@@ -1,7 +1,7 @@
 # ADO Connector for Next.js
 
 [![npm version](https://badge.fury.io/js/ado-connector.svg)](https://www.npmjs.com/package/ado-connector)
-[![Publish to NPM](https://github.com/YOUR_USERNAME/ado-connector/actions/workflows/publish.yml/badge.svg)](https://github.com/YOUR_USERNAME/ado-connector/actions/workflows/publish.yml)
+[![Publish to NPM](https://github.com/latiosthinh/ado-connector/actions/workflows/publish.yml/badge.svg)](https://github.com/latiosthinh/ado-connector/actions/workflows/publish.yml)
 
 A simple, powerful library to expose Azure DevOps (ADO) capabilities in your Next.js application.
 
@@ -41,7 +41,7 @@ const handler = createAdoHandler({
   pat: process.env.ADO_PAT!,
 });
 
-export { handler as GET, handler as POST };
+export { handler as GET, handler as POST, handler as PATCH };
 ```
 
 ### 3. Access the API
@@ -57,9 +57,13 @@ Now your application exposes the following endpoints:
 - `GET /api/ado/pipelines/:id/runs?top=20&skip=0`: Get runs with pagination.
 - `GET /api/ado/pipelines/:id/runs/:runId`: Get a specific run.
 - `GET /api/ado/builds/:id/artifacts`: Get artifacts for a specific build.
+- `GET /api/ado/repositories/:id/branches`: Get all branches for a repository.
 
 #### Write Operations (POST)
 - `POST /api/ado/pipelines/:id/runs`: Trigger a new pipeline run.
+
+#### Update Operations (PATCH)
+- `PATCH /api/ado/pipelines/:id/runs/:runId`: Cancel a running pipeline.
 
 ### 4. Triggering Pipeline Runs
 
@@ -110,3 +114,13 @@ const response = await fetch('/api/ado/pipelines/123/runs', {
 - **Type Safe**: Written in TypeScript with full type definitions.
 - **Enriched Data**: Automatically aggregates pipeline runs and artifacts for a comprehensive view.
 - **Pipeline Triggers**: Trigger pipeline runs with custom parameters and variables.
+- **Run Management**: Cancel running pipelines with a simple PATCH request.
+- **Branch Discovery**: Automatically fetch and list repository branches.
+- **Smart Polling**: Built-in support for efficient run status polling.
+
+## What's New in v1.0.4
+
+- ✨ **Branch Selection**: New endpoint to fetch repository branches
+- 🔄 **Improved Polling**: Automatic stop on terminal states (canceling/completed)
+- 🐛 **Bug Fixes**: Better error handling and validation
+- 📚 See [Release Notes](docs/release/2025-12-15.md) for full details
